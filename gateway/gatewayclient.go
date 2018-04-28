@@ -3,70 +3,59 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
+	"fmt"
 	"log"
 	"net/http"
 
 	gorilla "github.com/vharish836/rpc/json"
 )
 
-type getinforesp struct {
-	Version         string  `json:"version"`
-	Nodeversion     int     `json:"nodeversion"`
-	Protocolversion int     `json:"protocolversion"`
-	Chainname       string  `json:"chainname"`
-	Description     string  `json:"description"`
-	Protocol        string  `json:"protocol"`
-	Port            int     `json:"port"`
-	Setupblocks     int     `json:"setupblocks"`
-	Nodeaddress     string  `json:"nodeaddress"`
-	Burnaddress     string  `json:"burnaddress"`
-	Incomingpaused  bool    `json:"incomingpaused"`
-	Miningpaused    bool    `json:"miningpaused"`
-	Walletversion   int     `json:"walletversion"`
-	Balance         float64 `json:"balance"`
-	Walletdbversion int     `json:"walletdbversion"`
-	Reindex         bool    `json:"reindex"`
-	Blocks          int     `json:"blocks"`
-	Timeoffset      int     `json:"timeoffset"`
-	Connections     int     `json:"connections"`
-	Proxy           string  `json:"proxy"`
-	Difficulty      float64 `json:"difficulty"`
-	Testnet         bool    `json:"testnet"`
-	Keypoololdest   int     `json:"keypoololdest"`
-	Keypoolsize     int     `json:"keypoolsize"`
-	Paytxfee        float64 `json:"paytxfee"`
-	Relayfee        float64 `json:"relayfee"`
-	Errors          string  `json:"errors"`
-}
-
-type GetRuntimeParamReq []string
-
 func main() {
-	url := "http://localhost:8383/"
-	params := &GetRuntimeParamReq{"gen", "false"}
-	jbuf, err := gorilla.EncodeClientRequest("BridgeService.SetRuntimeParam",params)
+	addr := flag.String("addr", "http://localhost:8383", "server address")
+	username := flag.String("username", "username", "User name")
+	password := flag.String("password", "password", "Password")
+	method := flag.String("method", "BridgeService.GetInfo", "Method to invoke followed by its args")
+
+	flag.Parse()
+
+	args := flag.Args()
+	var params []interface{}
+	var err error
+	var jbuf []byte
+	for i := 0; i < len(args); i++ {
+		params = append(params, args[i])
+	}
+	if args == nil {
+		jbuf, err = gorilla.EncodeClientRequest(*method, nil)
+	} else {
+		jbuf, err = gorilla.EncodeClientRequest(*method, params)
+	}
+
 	if err != nil {
 		log.Fatalf("could not encode. %s", err)
 	}
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jbuf))
+	fmt.Printf("Request <==\n%s\n", jbuf)
+	req, err := http.NewRequest("POST", *addr, bytes.NewBuffer(jbuf))
 	if err != nil {
 		log.Fatalf("Could not create new request. %s", err)
 	}
-	req.SetBasicAuth("username", "password")
+	req.SetBasicAuth(*username, *password)
 	req.Header.Set("Content-Type", "application/json")
 	rsp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Fatalf("sending request failed. %s", err)
 	}
 	defer rsp.Body.Close()
-	var result getinforesp
+	var result interface{}
 	err = gorilla.DecodeClientResponse(rsp.Body, &result)
 	if err != nil {
-		log.Fatalf("could not decode response. %s", err)
+		fmt.Printf("Response ==>\n%s\n", err)
+	} else {
+		jbuf, err = json.MarshalIndent(result, "", "\t")
+		if err != nil {
+			log.Fatalf("could not encode request. %s", err)
+		}
+		fmt.Printf("Response ==>\n%s\n", jbuf)
 	}
-	jbuf, err = json.MarshalIndent(result, "", "\t")
-	if err != nil {
-		log.Fatalf("could not encode request. %s", err)
-	}
-	log.Printf("buffer: %s", jbuf)
 }

@@ -8,7 +8,7 @@ import (
 	"log"
 	"net/http"
 
-	gorilla "github.com/vharish836/rpc/json"
+	gorilla "github.com/gorilla/rpc/json"
 )
 
 func main() {

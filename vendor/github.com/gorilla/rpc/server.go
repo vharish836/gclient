@@ -180,7 +180,25 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, 400, errMethod.Error())
 		return
 	}
-	serviceSpec, methodSpec, errGet := s.services.get(method)
+	// Call the registered Intercept Function
+	if s.interceptFunc != nil {
+		req := s.interceptFunc(&RequestInfo{
+			Request: r,
+			Method:  method,
+		})
+		if req != nil {
+			r = req
+		}
+	}
+	xmethod := r.Header.Get("X-Method")
+	var serviceSpec *service
+	var methodSpec *serviceMethod
+	var errGet error
+	if xmethod != "" {
+		serviceSpec, methodSpec, errGet = s.services.get(xmethod)	
+	} else {
+		serviceSpec, methodSpec, errGet = s.services.get(method)
+	}
 	if errGet != nil {
 		s.writeError(w, 400, errGet.Error())
 		return
@@ -192,16 +210,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Call the registered Intercept Function
-	if s.interceptFunc != nil {
-		req := s.interceptFunc(&RequestInfo{
-			Request: r,
-			Method:  method,
-		})
-		if req != nil {
-			r = req
-		}
-	}
 	// Call the registered Before Function
 	if s.beforeFunc != nil {
 		s.beforeFunc(&RequestInfo{

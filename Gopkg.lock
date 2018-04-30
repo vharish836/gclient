@@ -7,13 +7,13 @@
     ".",
     "json"
   ]
-  revision = "22c016f3df3febe0c1f6727598b6389507e03a18"
-  source = "github.com/vharish836/rpc/json"
-  version = "v1.1.0"
+  revision = "0c73c8cb75aa7921ae2f9aa08b1a12243edb6429"
+  source = "github.com/vharish836/rpc"
+  version = "v1.2.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "5c297f2e1e13341c9e95a0f433bd1a71134940e1e8c122467ff11401663a80da"
+  inputs-digest = "f519b1f2180c0b56e245b12508b430ba40403c9d51211650570b5e173b86b475"
   solver-name = "gps-cdcl"
   solver-version = 1

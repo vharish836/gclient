@@ -6,6 +6,9 @@
 package json
 
 import (
+	"fmt"
+	"strings"
+	"reflect"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -24,7 +27,7 @@ type serverRequest struct {
 	// A String containing the name of the method to be invoked.
 	Method string `json:"method"`
 	// An Array of objects to pass as arguments to the method.
-	Params *json.RawMessage `json:"params"`
+	Params []json.RawMessage `json:"params"`
 	// The request id. This can be of any type. It is used to match the
 	// response with the request that it is replying to.
 	Id *json.RawMessage `json:"id"`
@@ -95,8 +98,36 @@ func (c *CodecRequest) ReadRequest(args interface{}) error {
 		if c.request.Params != nil {
 			// JSON params is array value. RPC params is struct.
 			// Unmarshal into array containing the request struct.
-			params := [1]interface{}{args}
-			c.err = json.Unmarshal(*c.request.Params, &params)
+			params := reflect.ValueOf(args).Elem()
+			if params.Kind() != reflect.Struct {
+				str := fmt.Sprintf("Expected request params to be Struct, got %s", params.Kind())
+				return errors.New(str)
+			}
+			rt := params.Type()
+			numParams := len(c.request.Params)
+			numFields := params.NumField()
+			if numFields < numParams {
+				str := fmt.Sprintf("Too many arguements,"+ 
+					"expected %d, got %d", numParams, numFields)
+				return errors.New(str)				
+			}
+			for i := 0; i < numParams; i++ {
+				rvf := params.Field(i)
+				concreateVal := rvf.Addr().Interface()
+				if err := json.Unmarshal(c.request.Params[i],&concreateVal); err != nil {
+					fieldName := strings.ToLower(rt.Field(i).Name)
+					if jerr, ok := err.(*json.UnmarshalTypeError); ok {
+						str := fmt.Sprintf("parameter #%d '%s' must "+
+							"be type %v (got %v)", i+1, fieldName,
+							jerr.Type, jerr.Value)
+						return errors.New(str)
+					}
+					// Fallback to showing the underlying error.
+					str := fmt.Sprintf("parameter #%d '%s' failed to "+
+						"unmarshal: %v", i+1, fieldName, err)
+					return errors.New(str)
+				}
+			}			
 		} else {
 			c.err = errors.New("rpc: method request ill-formed: missing params field")
 		}

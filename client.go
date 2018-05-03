@@ -6,10 +6,23 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
-
-	gorilla "github.com/gorilla/rpc/json"
 )
+
+// JSONRequest ...
+type JSONRequest struct {
+	Method string      `json:"method"`
+	Params []string    `json:"params"`
+	ID     interface{} `json:"id"`
+}
+
+// JSONResponse ...
+type JSONResponse struct {
+	Result interface{} `json:"result"`
+	Error  interface{} `json:"error"`
+	ID     interface{} `json:"id"`
+}
 
 func main() {
 	addr := flag.String("addr", "http://localhost:8383", "server address")
@@ -18,57 +31,68 @@ func main() {
 
 	flag.Parse()
 
-	args := flag.Args()
-	if len(args) == 0 {
+	params := flag.Args()
+	if len(params) == 0 {
 		log.Fatalf("please provide method and its args\n")
 	}
-	var params []interface{}
 	var err error
 	var jbuf []byte
-	for i := 1; i < len(args); i++ {
-		params = append(params, args[i])
-	}
-	method := args[0]
-	if len(args) == 1 {
-		jbuf, err = gorilla.EncodeClientRequest(method, nil)
-	} else {
-		jbuf, err = gorilla.EncodeClientRequest(method, params)
-	}
-
+	req := JSONRequest{Method: params[0], Params: params[1:], ID: rand.Int()}
+	jbuf, err = json.Marshal(&req)
 	if err != nil {
 		log.Fatalf("could not encode. %s", err)
 	}
 	fmt.Printf("Request <==\n%s\n", jbuf)
-	req, err := http.NewRequest("POST", *addr, bytes.NewBuffer(jbuf))
+	hreq, err := http.NewRequest("POST", *addr, bytes.NewBuffer(jbuf))
 	if err != nil {
 		log.Fatalf("Could not create new request. %s", err)
 	}
-	req.SetBasicAuth(*username, *password)
-	req.Header.Set("Content-Type", "application/json")
-	rsp, err := http.DefaultClient.Do(req)
+	hreq.SetBasicAuth(*username, *password)
+	hreq.Header.Set("Content-Type", "application/json")
+	rsp, err := http.DefaultClient.Do(hreq)
 	if err != nil {
 		log.Fatalf("sending request failed. %s", err)
 	}
 	defer rsp.Body.Close()
 	if rsp.StatusCode != 200 {
-		rbuf := make([]byte,200)
-		n,_ := rsp.Body.Read(rbuf)
+		rbuf := make([]byte, 200)
+		n, _ := rsp.Body.Read(rbuf)
 		if n == 0 {
 			fmt.Printf("Response (Status)==>\n%s\n", rsp.Status)
 		} else {
-			fmt.Printf("Response ==>\n%s\n",rbuf)
-		}		
+			fmt.Printf("Response ==>\n%s\n", rbuf)
+		}
 	} else {
-		var result interface{}
-		err = gorilla.DecodeClientResponse(rsp.Body, &result)
+		result := JSONResponse{}
+		err = json.NewDecoder(rsp.Body).Decode(&result)
 		if err != nil {
-			fmt.Printf("Response ==>\n%s\n", err)
+			fmt.Printf("Response(error) ==>\n%s\n", err)
 		} else {
-			jbuf, err = json.MarshalIndent(result, "", "\t")
-			if err != nil {
-				log.Fatalf("could not encode request. %s", err)
+			robj, ok := result.Result.(map[string]interface{})
+			if ok == true {
+				rbuf, err := json.MarshalIndent(robj, "", "\t")
+				if err != nil {
+					log.Fatalf("could not encode request. %s", err)
+				}
+				fmt.Printf("Response (Result) ==>\n%s\n", rbuf)
+			} else {
+				robj, ok := result.Error.(map[string]interface{})
+				if ok == true {
+					rbuf, err := json.MarshalIndent(robj, "", "\t")
+					if err != nil {
+						log.Fatalf("could not encode request. %s", err)
+					}
+					fmt.Printf("Response (Error) ==>\n%s\n", rbuf)
+				} else {
+					if result.Result != nil {
+						fmt.Printf("Response (Result) ==>\n%s\n", result.Result)
+					} else if result.Error != nil {
+						fmt.Printf("Response (Error) ==>\n%s\n", result.Error)
+					} else {
+						fmt.Printf("Response () ==> \n%s\n", "empty")
+					}					
+				}				
 			}
-			fmt.Printf("Response ==>\n%s\n", jbuf)
 		}
 	}
 }

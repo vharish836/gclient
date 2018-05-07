@@ -8,13 +8,14 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strconv"
 )
 
 // JSONRequest ...
 type JSONRequest struct {
-	Method string      `json:"method"`
-	Params []string    `json:"params"`
-	ID     interface{} `json:"id"`
+	Method string        `json:"method"`
+	Params []interface{} `json:"params"`
+	ID     interface{}   `json:"id"`
 }
 
 // JSONResponse ...
@@ -22,6 +23,32 @@ type JSONResponse struct {
 	Result interface{} `json:"result"`
 	Error  interface{} `json:"error"`
 	ID     interface{} `json:"id"`
+}
+
+func printmap(m map[string]interface{}) {
+	rbuf, err := json.MarshalIndent(m, "", "\t")
+	if err != nil {
+		log.Fatalf("could not encode request. %s", err)
+	}
+	fmt.Printf("\n%s\n", rbuf)
+}
+
+func parseparam(s string) interface{} {
+	var result interface{}
+	var err error
+	result, err = strconv.ParseInt(s, 0, 0)
+	if err == nil {
+		return result
+	}
+	result, err = strconv.ParseBool(s)
+	if err == nil {
+		return result
+	}
+	result, err = strconv.ParseFloat(s, 64)
+	if err == nil {
+		return result
+	}
+	return s
 }
 
 func main() {
@@ -37,7 +64,12 @@ func main() {
 	}
 	var err error
 	var jbuf []byte
-	req := JSONRequest{Method: params[0], Params: params[1:], ID: rand.Int()}
+	req := JSONRequest{Method: params[0], Params: make([]interface{}, 0), ID: rand.Int()}
+
+	for i := 1; i < len(params); i++ {
+		req.Params = append(req.Params, parseparam(params[i]))
+	}
+
 	jbuf, err = json.Marshal(&req)
 	if err != nil {
 		log.Fatalf("could not encode. %s", err)
@@ -66,32 +98,42 @@ func main() {
 		result := JSONResponse{}
 		err = json.NewDecoder(rsp.Body).Decode(&result)
 		if err != nil {
-			fmt.Printf("Response(error) ==>\n%s\n", err)
-		} else {
-			robj, ok := result.Result.(map[string]interface{})
-			if ok == true {
-				rbuf, err := json.MarshalIndent(robj, "", "\t")
-				if err != nil {
-					log.Fatalf("could not encode request. %s", err)
-				}
-				fmt.Printf("Response (Result) ==>\n%s\n", rbuf)
-			} else {
-				robj, ok := result.Error.(map[string]interface{})
-				if ok == true {
-					rbuf, err := json.MarshalIndent(robj, "", "\t")
-					if err != nil {
-						log.Fatalf("could not encode request. %s", err)
+			log.Fatalf("coudl not decode response: %s", err)
+		}
+		if result.Result != nil {
+			fmt.Printf("Response (result) ==>")
+			switch result.Result.(type) {
+			case map[string]interface{}:
+				printmap(result.Result.(map[string]interface{}))
+			case []interface{}:
+				for _, v := range result.Result.([]interface{}) {
+					switch v.(type) {
+					case map[string]interface{}:
+						printmap(v.(map[string]interface{}))
+					case string:
+						fmt.Printf("%s", v.(string))
 					}
-					fmt.Printf("Response (Error) ==>\n%s\n", rbuf)
-				} else {
-					if result.Result != nil {
-						fmt.Printf("Response (Result) ==>\n%s\n", result.Result)
-					} else if result.Error != nil {
-						fmt.Printf("Response (Error) ==>\n%s\n", result.Error)
-					} else {
-						fmt.Printf("Response () ==> \n%s\n", "empty")
-					}					
-				}				
+				}
+			case string:
+				fmt.Printf("%s", result.Result.(string))
+			}
+		}
+		if result.Error != nil {
+			fmt.Printf("Response (error) ==>")
+			switch result.Error.(type) {
+			case map[string]interface{}:
+				printmap(result.Error.(map[string]interface{}))
+			case []interface{}:
+				for _, v := range result.Error.([]interface{}) {
+					switch v.(type) {
+					case map[string]interface{}:
+						printmap(v.(map[string]interface{}))
+					case string:
+						fmt.Printf("%s", v.(string))
+					}
+				}
+			case string:
+				fmt.Printf("%s", result.Error.(string))
 			}
 		}
 	}

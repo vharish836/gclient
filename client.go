@@ -111,11 +111,11 @@ func main() {
 					case map[string]interface{}:
 						printmap(v.(map[string]interface{}))
 					case string:
-						fmt.Printf("%s", v.(string))
+						fmt.Printf("%s\n", v.(string))
 					}
 				}
 			case string:
-				fmt.Printf("%s", result.Result.(string))
+				fmt.Printf("%s\n", result.Result.(string))
 			}
 		}
 		if result.Error != nil {
@@ -129,11 +129,11 @@ func main() {
 					case map[string]interface{}:
 						printmap(v.(map[string]interface{}))
 					case string:
-						fmt.Printf("%s", v.(string))
+						fmt.Printf("%s\n", v.(string))
 					}
 				}
 			case string:
-				fmt.Printf("%s", result.Error.(string))
+				fmt.Printf("%s\n", result.Error.(string))
 			}
 		}
 	}

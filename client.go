@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 // JSONRequest ...
@@ -81,10 +82,12 @@ func main() {
 	}
 	hreq.SetBasicAuth(*username, *password)
 	hreq.Header.Set("Content-Type", "application/json")
+	startTime := time.Now()
 	rsp, err := http.DefaultClient.Do(hreq)
 	if err != nil {
 		log.Fatalf("sending request failed. %s", err)
 	}
+	endTime := time.Now()	
 	defer rsp.Body.Close()
 	if rsp.StatusCode != 200 {
 		rbuf := make([]byte, 200)
@@ -111,11 +114,11 @@ func main() {
 					case map[string]interface{}:
 						printmap(v.(map[string]interface{}))
 					case string:
-						fmt.Printf("%s\n", v.(string))
+						fmt.Printf("\n%s\n", v.(string))
 					}
 				}
 			case string:
-				fmt.Printf("%s\n", result.Result.(string))
+				fmt.Printf("\n%s\n", result.Result.(string))
 			}
 		}
 		if result.Error != nil {
@@ -129,12 +132,13 @@ func main() {
 					case map[string]interface{}:
 						printmap(v.(map[string]interface{}))
 					case string:
-						fmt.Printf("%s\n", v.(string))
+						fmt.Printf("\n%s\n", v.(string))
 					}
 				}
 			case string:
-				fmt.Printf("%s\n", result.Error.(string))
+				fmt.Printf("\n%s\n", result.Error.(string))
 			}
 		}
 	}
+	fmt.Printf("\nResponse took %s\n", endTime.Sub(startTime).String())
 }
